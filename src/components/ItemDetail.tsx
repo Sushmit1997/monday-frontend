@@ -1,34 +1,38 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { FactorInput } from './FactorInput'
 import { RecalculateButton } from './RecalculateButton'
 import { HistoryTable } from './HistoryTable'
 import { AttentionBox } from '@vibe/core'
 import type { CalculationHistoryEntry } from '../types/history'
 import { getItemFactor, saveItemFactor, getItemHistory, recalculateItem, withRetry } from '../services/api'
+import { MondayItem } from '../types/items'
 
 type Props = {
-  itemId: string
-  itemName: string
+  item: MondayItem
   onBack: () => void
 }
 
-export function ItemDetail({ itemId, itemName, onBack }: Props) {
+export function ItemDetail({ item, onBack }: Props) {
   const [factor, setFactor] = useState<number>(1)
   const [history, setHistory] = useState<CalculationHistoryEntry[]>([])
   const [loading, setLoading] = useState<boolean>(true)
+  const timeoutRef = useRef<number | null>(null)
+  const previousFactorRef = useRef<number>(1)
 
   useEffect(() => {
-    if (!itemId) return
+    if (!item) return
     let cancelled = false
     ;(async () => {
       setLoading(true)
       try {
         const [factorResponse, historyResponse] = await Promise.all([
-          withRetry(() => getItemFactor(Number(itemId))),
-          withRetry(() => getItemHistory(Number(itemId))),
+          withRetry(() => getItemFactor(Number(item.id))),
+          withRetry(() => getItemHistory(Number(item.id))),
         ])
         if (!cancelled) {
-          setFactor(Number.isFinite(factorResponse.data.factor) ? factorResponse.data.factor : 1)
+          const newFactor = Number.isFinite(factorResponse.data.factor) ? factorResponse.data.factor : 1
+          setFactor(newFactor)
+          previousFactorRef.current = newFactor
           setHistory(historyResponse.data.history ?? [])
         }
       } finally {
@@ -38,21 +42,47 @@ export function ItemDetail({ itemId, itemName, onBack }: Props) {
     return () => {
       cancelled = true
     }
-  }, [itemId])
+  }, [item.id])
 
 
 
   const handleManualRecalculate = async () => {
-    if (!itemId) return
+    if (!item.id) return
     try {
-      await withRetry(() => saveItemFactor(Number(itemId), factor))
-      await withRetry(() => recalculateItem(Number(itemId)))
-      const updated = await withRetry(() => getItemHistory(Number(itemId)))
+      await withRetry(() => saveItemFactor(Number(item.id), factor))
+      await withRetry(() => recalculateItem(Number(item.id)))
+      const updated = await withRetry(() => getItemHistory(Number(item.id)))
       setHistory(updated.data.history ?? [])
     } catch {
-      // logged in withRetry
+      
     }
   }
+
+  // Debounced effect for factor changes (excluding initial load)
+  useEffect(() => {
+    // Only trigger if factor actually changed (not from initial load)
+    if (factor === previousFactorRef.current) return
+    
+    if (!item.id) return
+    
+    // Update the previous factor reference
+    previousFactorRef.current = factor
+    
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+    }
+    
+    timeoutRef.current = setTimeout(() => {
+      handleManualRecalculate()
+    }, 1000)
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
+  }, [factor, item.id])
+
 
   return (
     <div className="min-h-full grid place-items-center p-4">
@@ -70,7 +100,7 @@ export function ItemDetail({ itemId, itemName, onBack }: Props) {
         </div>
         
         <div className="mb-6">
-          <AttentionBox title="Item Context" text={`Item ID: ${itemId} - ${itemName}`} type="success" />
+          <AttentionBox title="Item Context" text={`Item ID: ${item.id} - ${item.name}`} type="success" />
         </div>
         
         <div className="flex flex-col md:flex-row items-stretch md:items-end gap-4 mb-6">

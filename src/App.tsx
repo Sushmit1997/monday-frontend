@@ -1,27 +1,25 @@
 import { useState } from 'react'
 import { ItemsList } from './components/ItemsList'
 import { ItemDetail } from './components/ItemDetail'
+import { MondayItem } from './types/items'
 
 type View = 'list' | 'detail'
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>('list')
-  const [selectedItemId, setSelectedItemId] = useState<string>('')
-  const [selectedItemName, setSelectedItemName] = useState<string>('')
-  const handleItemSelect = (itemId: string, itemName: string) => {
-    setSelectedItemId(itemId)
-    setSelectedItemName(itemName)
+  const [selectedItem, setSelectedItem] = useState<MondayItem | null>(null)
+  const handleItemSelect = (item: MondayItem) => {
+    setSelectedItem(item)
     setCurrentView('detail')
   }
 
   const handleBackToList = () => {
     setCurrentView('list')
-    setSelectedItemId('')
-    setSelectedItemName('')
+    setSelectedItem(null)
   }
 
   if (currentView === 'detail') {
-    return <ItemDetail itemId={selectedItemId} itemName={selectedItemName} onBack={handleBackToList} />
+    return <ItemDetail item={selectedItem!} onBack={handleBackToList} />
   }
 
   return <ItemsList onItemSelect={handleItemSelect} />

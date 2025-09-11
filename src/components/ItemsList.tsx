@@ -3,7 +3,7 @@ import { getAllItems } from '../services/api'
 import type { MondayItem } from '../types/items'
 
 type Props = {
-  onItemSelect: (itemId: string, itemName: string) => void
+  onItemSelect: (item: MondayItem) => void
 }
 
 export function ItemsList({ onItemSelect }: Props) {
@@ -47,7 +47,7 @@ export function ItemsList({ onItemSelect }: Props) {
             return (
               <div
                 key={item.id}
-                onClick={() => onItemSelect(item.id, item.name)}
+                onClick={() => onItemSelect(item)}
                 className="card p-4 cursor-pointer hover:bg-white/5 transition-colors"
               >
                 <div className="flex justify-between items-start">
